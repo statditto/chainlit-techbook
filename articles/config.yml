@@ -17,15 +17,15 @@ review_version: 5.0
 # inherit: ["A.yml", "B.yml"]
 
 # ブック名(ファイル名になるもの。ASCII範囲の文字を使用)
-bookname: ReVIEW-Template
+bookname: chainlit-techbook
 # 記述言語。省略した場合はja
 language: ja
 
 # 書名
-booktitle: {name: "Re:VIEWテンプレート", file-as: "reviewテンプレート"}
+booktitle: {name: "Chainlit TechBook", file-as: "chainlit techbook"}
 
 # 著者名。「, 」で区切って複数指定できる
-aut: [{name: "TechBooster編", file-as: "techboosterヘン"}]
+aut: [{name: "ditto", file-as: "ditto"}]
 
 # 以下はオプション
 # 以下はオプション(autと同じように配列書式で複数指定可能)。
@@ -47,7 +47,7 @@ aut: [{name: "TechBooster編", file-as: "techboosterヘン"}]
 # a-csl, csl: 監修者
 # a-dsr, dsr: デザイナ
 # a-edt, edt: 編集者
-edt: ["mhidaka"]
+edt: ["ditto"]
 # a-ill, ill: イラストレータ
 # a-lyr, lyr: 歌詞作成者
 # a-mdc, mdc: メタデータセットの一次的責任者
@@ -56,7 +56,7 @@ edt: ["mhidaka"]
 # a-oth, oth: その他
 # a-pht, pht: 撮影責任者
 # a-pbl, pbl: 出版社（発行所）
-pbl: TechBooster
+pbl: ditto
 # a-prt, prt: 印刷所
 # prt: TechBooster
 # a-red, red: 項目の枠組起草者
@@ -77,7 +77,7 @@ date: 2026-4-11
 history: [["2026-4-11 技術書典20版 v1.0.0"]]
 # 権利表記(配列で複数指定可)
 # rights: (C) 2016 Re:VIEW Developers
-rights: (C) 2017-2026 TechBooster
+rights: (C) 2026 ditto
 # description: 説明
 # subject: 短い説明用タグ(配列で複数指定可)
 # type: 書籍のカテゴリーなど(配列で複数指定可)
@@ -90,7 +90,7 @@ rights: (C) 2017-2026 TechBooster
 debug: null
 
 # 固有IDに使用するドメイン。省略した場合は時刻に基づくランダムUUIDが入る
-urnid: urn:uuid:https://github.com/TechBooster/ReVIEW-Template
+# urnid: urn:uuid:https://github.com/TechBooster/ReVIEW-Template
 #
 # ISBN。省略した場合はurnidが入る
 # isbn: null
@@ -182,7 +182,7 @@ colophon: true
 # catalogfile: catalog.yml
 
 # reファイルを格納するディレクトリ。省略した場合は以下 (. はカレントディレクトリを示す)
-# contentdir: .
+contentdir: chapters
 # pandoc2reviewを利用してMarkdownコンテンツを取り込むには、以下を有効にする
 # contentdir: _refiles
 
@@ -372,13 +372,15 @@ texstyle: ["reviewmacro"]
 # hiddenfolio=nikko-pcは日光企画向けのノドへの隠しノンブル配置
 #
 # B5の設定(10pt 40文字×35行) - 紙版
-texdocumentclass: ["review-jsbook", "media=print,paper=b5,serial_pagination=true,hiddenfolio=nikko-pc,openany,fontsize=10pt,baselineskip=15.4pt,line_length=40zw,number_of_lines=35,head_space=30mm,headsep=10mm,headheight=5mm,footskip=10mm"]
+# texdocumentclass: ["review-jsbook", "media=print,paper=b5,serial_pagination=true,hiddenfolio=nikko-pc,openany,fontsize=10pt,baselineskip=15.4pt,line_length=40zw,number_of_lines=35,head_space=30mm,headsep=10mm,headheight=5mm,footskip=10mm"]
 # B5の設定(10pt 40文字×35行) - 電子版
 # texdocumentclass: ["review-jsbook", "media=ebook,paper=b5,serial_pagination=true,openany,fontsize=10pt,baselineskip=15.4pt,line_length=40zw,number_of_lines=35,head_space=30mm,headsep=10mm,headheight=5mm,footskip=10mm"]
 # A5の設定(9pt 38文字×37行) - 紙版
 # texdocumentclass: ["review-jsbook", "media=print,paper=a5,serial_pagination=true,hiddenfolio=nikko-pc,openany,fontsize=9pt,baselineskip=13pt,line_length=38zw,number_of_lines=37,head_space=15mm,headsep=3mm,headheight=5mm,footskip=10mm"]
 # A5の設定(9pt 38文字×37行) - 電子版
 # texdocumentclass: ["review-jsbook", "media=ebook,paper=a5,serial_pagination=true,openany,fontsize=9pt,baselineskip=13pt,line_length=38zw,number_of_lines=37,head_space=15mm,headsep=3mm,headheight=5mm,footskip=10mm"]
+
+texdocumentclass: ["review-jsbook", "media=print,paper=a5,serial_pagination=true,hiddenfolio=nikko-pc,fontsize=9pt,baselineskip=13pt,line_length=38zw,number_of_lines=37,head_space=15mm,headsep=3mm,headheight=5mm,footskip=10mm"]
 #
 # LaTeX用のコマンドを指定する
 # texcommand: "uplatex"
