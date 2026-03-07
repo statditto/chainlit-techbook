@@ -2,10 +2,9 @@
 = ChainlitのUIを@<ruby>{癖, へき}に染める
 
 == はじめに
-LLMが一般社会に急速に浸透し、我々の生活やワークスタイルは大きく変化しました。日々の献立から専門的な分野の調査分析まで、普段使う言葉で対話しながら解決できるLLMは、もはや日常になくてはならないものになっています。まるで、先人たちがSF作品で描いたような世界が現実になりつつあります。
-特にゲームに絞ると、このような人工知能との関わりを描いた作品は数多く思い当たります。「ナビ」と呼ばれる人工知能を使ってインターネットウイルスを駆逐したり、2つのポータルと人間の知恵を駆使して暴走した人工知能と対峙したり。最近では、人工知能と共闘してリモートで「ホロウ」と呼ばれる危険地帯を探索する便利屋を扱ったソーシャルゲームも登場しました。このような作品に触れてきた方は、もしかしたらLLMに対し、単なるツールを超えた人格としての親近感を覚える方もいるのではないでしょうか。少なくとも私はそうです。
-このような作品では、世界観に合わせて近未来的なUIが導入されることが多く、その鮮烈なカラーリングと演出に心を躍らせたものです。他方、大衆向け・ことビジネス向けサービスのUIに目を向けると、シンプルさ・わかりやすさが重視されます。ChatGPTやClaude Code、Chainlitの標準デザインもシンプルな構造ですよね。実際、シンプルな方がビジネスのさまざまな場面でノイズになりにくいですし、操作のわかりやすさという点でも理にかなっています。しかし頭では理解しながらも、LLMというSF作品の夢を具現化したような存在が現れた今、それを扱うUIも創作の典型に寄せてみたら、日々の業務がちょっと楽しくなるのでは？という思いを常に抱えていました。そんな時にdittoさんにこの記事執筆のお話をいただき、実際に手を動かして作ってみることにしました。
-フロントエンドの開発の経験はなく、学生時代に静的サイトの装飾を多少扱った程度ですが、そのレベルでもできる範囲で実装してみます。
+LLMが一般社会に急速に浸透し、我々の生活やワークスタイルは大きく変化しました。日々の献立から専門的な分野の調査分析まで、普段使う言葉で対話しながら解決できるLLMは、もはや日常になくてはならないものになっています。それはまるで、先人たちがSF作品で描いたような世界のようです。
+ゲームに絞っても、人工知能との関わりを描いた作品は数多く思い当たります。「ナビ」と呼ばれる人工知能を使ってインターネットウイルスを駆逐したり、2つのポータルと人間の知恵を駆使して暴走した人工知能と対峙したり。もしかしたらLLMに対し、単なるツールを超えた人格としての親近感を覚える方もいるのではないでしょうか。少なくとも私はそうです。
+このような作品では、世界観に合わせて近未来的なUIが導入されることが多い傾向にあります。その鮮烈なネオンカラーと非自然的なポリゴンデザインの格好良さは色褪せません。現実世界に存在するLLMのUIデザインはシンプルなものが多いですが、その先入観を排してSF風に寄せてみたら、日々の業務がちょっと楽しくなるのでは？という思いつきから、ChainlitのUI変更に挑戦することにしました。
 
 == この記事の取扱範囲と資料について
 === 取扱範囲・取り扱わない範囲
@@ -163,7 +162,8 @@ custom_js = "/public/effects.js"
 
 ==== ログイン画面の変更
 基本的に、これからは@<b>{selectorを特定し、cssやjsで書き換える}という作業を続けていきます。
-目標のデザインを実現する上で、大きな改造が必要なのは下記の2つです。この事例を中心に、対象要素の紹介とその操作を紹介します。
+目標のデザインを実現する上で、大きな改造が必要なのは下記の2つです。
+
 
 * 標準UIの背景のロゴを消し、入力欄を中央に配置する
 * ロゴを入力欄の上部に表示する
@@ -296,28 +296,155 @@ span.relative.flex.shrink-0.overflow-hidden.rounded-full[data-state]:has(> img[a
 //image[seahawk-customized-talk-2][トーク中の画面][scale=0.5]
 
 === 動的要素を変更する
+ここまでで、静的な適用はできてきました。ここからは、js要素の活用の確認と、近未来感の醸成のために、動きをつけていきましょう。
+custom_jsの設定は前項を参照ください。
 
-==== ダイアログに動きをつける
+==== バブルに演出をつける
+メッセージを送信したあとや、LLM側の返答が表示されるときにチカチカと光るような装飾をつけます。
 
-==== トーク画面の変更
+(image)
+
+そのために、jsで対象要素の監視とclass付与を行います。@<table>{class-role}にclassと役割の対応を示します。対象は前項で解説したselectorで指定します。
+//table[class-role][classと役割について]{
+target 'cl-anim-target' 装飾適用対象の要素につける
+active 'cl-anim-enter-active' 装飾を実際に表示している要素につける
+done 'cl-anim-done' 装飾を表示し終わった要素につける
+//}
+
+詳細はソースコードをご確認いただきたいと思いますが、classの付与はanimateElement関数で制御しています。
+
+//emlist[handleMutatins内]{
+  function animateElement(element) {
+    if (!isElement(element)) return;
+    if (!hasRenderableContent(element)) return;
+    if (isAnimated(element) || isAnimating(element)) return;
+
+    element.dataset[DATA_ATTR.animated] = 'pending';
+    element.classList.add(CLASS_NAMES.target);
+    element.classList.remove(CLASS_NAMES.done);
+
+    debugLog('animation start', element);
+
+    requestAnimationFrame(() => {
+      void element.offsetWidth;
+      requestAnimationFrame(() => {
+        element.classList.add(CLASS_NAMES.active);
+      });
+    });
+
+    window.setTimeout(() => {
+      markAsDone(element);
+    }, ENTER_DURATION_MS);
+  }
+//}
+
+あとは、cssでblinkの挙動を書けば完成です。
+
+//emlist[blinkするCSS]{
+@keyframes cl-border-blink-twice {
+  0% {
+    background: var(--chat-frame-border);
+  }
+  15% {
+    background: var(--chat-enter-flash-border);
+  }
+  30% {
+    background: var(--chat-frame-border);
+  }
+  70% {
+    background: var(--chat-enter-flash-border);
+  }
+  100% {
+    background: var(--chat-frame-border);
+  }
+}
+
+body:not(:has(input[type="password"]):has(button[type="submit"]))
+  div.px-5.py-2\.5.relative.bg-accent.rounded-3xl.max-w-\[70\%\].flex-grow-0.cl-anim-target.cl-anim-enter-active::before,
+body:not(:has(input[type="password"]):has(button[type="submit"]))
+  .message-content:not(.px-5.py-2\.5.relative.bg-accent.rounded-3xl.max-w-\[70\%\].flex-grow-0 .message-content).cl-anim-target.cl-anim-enter-active::before {
+  ...
+  animation: cl-border-blink-twice 320ms linear 1;
+}
+//}
+
+==== ロゴを無駄に回す
+最後に、円形モチーフのロゴを作りましたが、せっかくなのでゆっくりと回るようにしたいと思います。ロゴは半径と色、太さの異なる複数の円を重ねて作っています。このそれぞれの縁を異なるスピードで回転させます。svgでそれぞれのパーツは書き出してあるので、2ステップに分けて実装していきます。
+
+===== publicにロゴを置く
+
+
+//emlist[]{
+public/
+└── logos/
+    ├── ring-01.svg
+    ├── ring-02.svg
+    ├── ring-03.svg
+    └── ...
+//}
+
+
+
+===== ロゴを複数枚のsvgの重ね合わせに置き換える
+Chainlitの標準では、ロゴは1枚のみ登録可能です。一方、今回は複数のsvgを重ね合わせるので、jsで要素を上書きする必要があります。
+
+//emlist[既存のロゴを重ね合わせたロゴに置き換える][javascript]{
+/* 重ね合わせロゴのコンテナを作る */
+function createLogoContainer(className) {
+    const container = document.createElement('div');
+    container.className = className;
+    container.setAttribute('aria-hidden', 'true');
+
+    LOGO_LAYERS.forEach((src, i) => {
+        const layer = document.createElement('img');
+        layer.src = src;
+        layer.alt = '';
+        layer.className = `cl-logo-layer cl-logo-layer-${i + 1}`;
+        container.appendChild(layer);
+    });
+
+    return container;
+}
+
+/* 置き換える */
+function replaceLoginLogo() {
+    const form = document.querySelector('form:has(input[type="password"])');
+    ...
+    form.prepend(createLogoContainer('cl-layered-logo'));
+    form.dataset.clLogoInjected = 'true';
+    ...
+}
+//}
+
+===== ロゴを回す
+上の処理で、それぞれのレイヤーに cl-logo-layer-${i + 1} と連番のclassを付与しました。
+このclassを使って回転を定義すればOKです。常に回し続ければ良いので、擬似要素での分岐もなく楽ですね。
+
+//emlist[既存のロゴを重ね合わせたロゴに置き換える][css]{
+:is(.cl-layered-logo) .cl-logo-layer-1 { animation-duration: 16s; }
+:is(.cl-layered-logo) .cl-logo-layer-2 { animation-duration: 25s; }
+:is(.cl-layered-logo) .cl-logo-layer-3 { animation-duration: 18s; }
+:is(.cl-layered-logo) .cl-logo-layer-4 { animation-duration: 26s; }
+:is(.cl-layered-logo) .cl-logo-layer-5 { animation-duration: 21s; }
+:is(.cl-layered-logo) .cl-logo-layer-6 { animation-duration: 17s; }
+:is(.cl-layered-logo) .cl-logo-layer-7 { animation-duration: 24s; }
+:is(.cl-layered-logo) .cl-logo-layer-8 { animation-duration: 19s; }
+//}
+
+これで、ロゴの回転が実装できました。
 
 === 完成！
+以上で出来上がったものがこちらのrepositoryに格納されています。
+link
+
+また、ムービーを以下のサイトにあげているのでぜひご覧ください。
+link
+QRの画像
 
 == 終わりに
+selectorを特定してcssとjsで操作するという地味な作業が多い記事でしたが、Reactやtailwindなどの著名なjsのフレームワークを使わなくてもUIを変更できました。もちろん、もっと凝ったデザインを志向するのであればそちらを使った方がいいと思います。ただ、標準UIの構成自体は複雑ではなく、pythonを使い慣れた分析寄りのスキルセットを持った方々には十分かつ丁寧な仕様と言えるでしょう。もっと言えば、標準UIも洗練されていて、theme.jsonでトンマナを変えるだけでも良いのではと思ったぐらいです。
+UIデザインは、プロダクトの利便性の根幹の一つであると同時に、製作者がプロダクトに込めた思いを表現する場でもあります。もし業務やプライベートでChainlitを使うときは、ちょっと凝ったデザインにして、その思いをこっそり色や形に忍ばせてみてはいかがでしょうか。
 
-
-
-#@# 画像はarticlesフォルダの下のimagesフォルダに入れて、こんな風に指定すると表示されます。（@<img>{sample-diagram}）
-
-#@# //image[sample-diagram][画像はここに表示される][scale=0.8]{
-#@# //}
-
-#@# 注釈を書くこともできます。@<fn>{footnote-sample}
-
-#@# //footnote[footnote-sample][注釈はこんな風に表示される]
-
-#@# Re:VIEWの文法について詳しくは、Re:VIEW フォーマットガイドを参照してください。
-
-#@#  * Re:VIEW フォーマットガイド
-#@#  ** @<href>{https://github.com/kmuto/review/blob/master/doc/format.ja.md}
-
+== 参考資料
+https://docs.chainlit.io/customisation/overview
+https://developer.mozilla.org/ja/docs/Web/CSS
