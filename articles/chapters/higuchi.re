@@ -241,14 +241,63 @@ body:has(input[type="password"]):has(button[type="submit"]) input {
 //}
 
 これらの処理により、目標の見た目に近づきました。
-//image[seahawk-customized-login-2][良い感じになってきた][scale=0.35]
-
+//image[seahawk-customized-login-2][良い感じになってきた][scale=0.5]
 
 ==== トーク画面の変更
+ログイン画面に比べて、トーク画面の変更は比較的シンプルです。トーク画面の判定には下記のセレクタを利用します。
+
+//emlist[]{
+body:not(:has(input[type="password"]):has(button[type="submit"]))
+//}
+
+トーク画面には入力ボックス・ユーザーバブル・アシスタントバブル（LLM側の返答）があり、それぞれのカスタマイザは下記の通りです。アシスタントバブルはユーザーバブルに該当するclassの除外により分別しています。
+
+//emlist[]{
+/* 入力ボックスのselector */
+body:not(:has(input[type="password"]):has(button[type="submit"])) #message-composer
+
+/* ユーザーバブルのselector */
+body:not(:has(input[type="password"]):has(button[type="submit"]))
+  div.px-5.py-2\.5.relative.bg-accent.rounded-3xl.max-w-\[70\%\].flex-grow-0
+
+/* アシスタントバブルのselector */
+body:not(:has(input[type="password"]):has(button[type="submit"]))
+  .message-content:not(.px-5.py-2\.5.relative.bg-accent.rounded-3xl.max-w-\[70\%\].flex-grow-0 .message-content)
+//}
+
+===== ユーザーバブルの装飾
+標準UIでは、ユーザーバブルには角丸四角の装飾が施されています。
+//image[seahawk-default-bubble][標準のバブルデザイン][scale=0.5]
+
+実装ではこの要素を非表示にした上で、枠の装飾を適用しています。
+//emlist[]{
+body:not(:has(input[type="password"]):has(button[type="submit"]))
+  div.px-5.py-2\.5.relative.bg-accent.rounded-3xl.max-w-\[70\%\].flex-grow-0 .message-content {
+  background: transparent !important;
+  border: 0 !important;
+  ...
+}
+//}
+
+===== アシスタントバブルの装飾
+ユーザーバブルとは異なり、左にアイコン、その横に返答メッセージが表示されます。囲み枠はありません。
+枠自体の適用はユーザーバブルと同様ですが、アイコンを含む分の位置調整が必要になります。
+
+//emlist[]{
+span.relative.flex.shrink-0.overflow-hidden.rounded-full[data-state]:has(> img[alt="Avatar for Assistant"]) img[alt="Avatar for Assistant"] {
+  ...
+  left: -30px;
+  ...
+}
+//}
+
+以上の編集を終えて、静的デザインは完成です。
+//image[seahawk-customized-talk-1][トーク初期画面][scale=0.5]
+//image[seahawk-customized-talk-2][トーク中の画面][scale=0.5]
 
 === 動的要素を変更する
 
-==== ログイン画面の変更
+==== ダイアログに動きをつける
 
 ==== トーク画面の変更
 
