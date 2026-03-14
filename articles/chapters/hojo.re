@@ -1,86 +1,82 @@
-
-= send_window_messageで物理パズルゲームを作る
+= LLMでインタラクティブな物理パズルゲームを作る
 
 //lead{
-Chainlitのカスタムフロントエンド機能と@<code>{send_window_message}を使い、チャットでLLMに指示するだけで物理パズルが自動生成されるWebアプリを作ります。
-チャットUI × 物理エンジン（Matter.js）のゲーム画面をリアルタイムに繋ぐ実装を紹介します。
+Chainlitの標準のチャットUIは、基本的にユーザーがメッセージを送信し、システムがそのメッセージに応答する形で完結しています。
+これは、システムとの対話には適していますが、LLMの創造性を十分に活かしたインタラクティブな体験をユーザーに提供することはできません。
+
+しかし、Chainlitには@<code>{send_window_message}という機能があります。
+@<code>{send_window_message}は、チャットUIの外側にある独自のフロントエンドにリアルタイムでデータを送ることができるのです。
+この機能を使い、ChainlitでLLMに生成させたゲームで遊べれば面白くないでしょうか？
+
+ただ、LLMは毎回固定されたフォーマットで正しいデータを返してくれるとは限りません。
+せっかくLLMの創造性に任せてステージを生成させても、ゲームとして成立しないデータが返ってくることもあります。
+
+そこで本章では、LLMを用いて生成したゲームのステージをバリデーションし、@<code>{send_window_message}で独自のフロントエンドにデータを送ることで遊べる物理ゲームの作り方を紹介します。
 //}
 
 //pagebreak
 
 
-== 本章の概要
+== Chainlitで実現する物理パズルゲーム
 
 「簡単なパズルを作って」―チャットにそう入力するだけで、LLMが物理パズルのステージを生成し、ブラウザ上でそのまま遊べるアプリを作ります。
-物理エンジンにはMatter.js@<fn>{matterjs}を使っています。
-
-//footnote[matterjs][Matter.js：2D物理エンジンのJavaScriptライブラリ。https://brm.io/matter-js/]
 
 //image[hojo-1][完成イメージ：チャットでパズルを生成し、右側のゲーム画面で遊ぶ]{
 //}
 
-ゲームの流れは簡単です。
+ゲームの流れは以下の通りです。
 
  1. ユーザーがチャットでパズルの要件を入力する（例：「簡単なパズルを作って」など）
- 2. バックエンドでLLMがステージのJSONデータを生成する
- 3. Chainlitの@<code>{send_window_message}で、JSONをフロントエンドに送信する
- 4. フロントエンドがMatter.jsでステージを描画する
- 5. ユーザーがオレンジ色の板をドラッグして配置し、スタートボタンでボールを転がす
- 6. ボールがゴールに到達すればクリア！
+ 2. LLMがステージを作成し、カスタムフロントエンドにゲームが表示される
+ 3. ユーザーはボールがゴールに到達できるように板を配置する
+ 4. スタートボタンを押して、ボールがゴールに到達すればクリア！
 
-「もっと難しくして」や「月面モードのパズルを作って」と追加で指示すれば、LLMが既存のステージを調整して再生成してくれます。
-ステージデザイナーを雇わなくても、チャットで無限に新しいパズルが遊べます。
+「もっと難しくして」や「月面モードのパズルを作って」と追加で指示すれば、LLMが既存のステージを調整して再生成することもできます。
+ステージデザイナーを雇わなくても、チャットで無限に新しいパズルを遊ぶことができるのです。
 
 
-=== アプリの概要
+== 実装方法
 
-作成したアプリを紹介します。
-主要ファイルはたった3つです。
+今回作成するアプリは、たった3つの主要なコンポーネントで構成されており、これらを上手く繋ぎ合わせることでLLMで遊べる物理ゲームが完成します。
+
+//image[hojo-2][データの流れ：チャット → LLM → send_window_message → フロントエンド]{
+//}
+
+基本的なデータの流れは以下の通りです。
+
+ 1. ユーザーからChainlitのチャットUIを通して、ステージの要望を受け取る
+ 2. ユーザーの要望をLLMに渡す
+ 3. LLMが生成したステージJSONをバリデーションして、Chainlitに返す
+ 4. @<code>{send_window_message}を用いてフロントエンドにステージJSONを送信し、フロントエンドでゲームステージが描画される
+
+各コンポーネントを実現するファイルは、以下の3つです。
 
 //table[files][ファイル構成]{
 ファイル	役割	行数
 -----------------
 app.py	Chainlit UIレイヤー	約30行
-llm.py	LLM連携・ステージ生成	約180行
+llm.py	LLM連携・ステージ生成・バリデーション	約180行
 public/index.html	ゲームフロントエンド	約300行
 //}
 
-設定ファイル（@<code>{.chainlit/config.toml}、@<code>{.env}など）を除けば、たったこれだけで動作します。
-app.pyに至っては30行。Pythonの入門書に載っていそうな短さですが、ちゃんとゲームとして動作します。
-
-
-== アーキテクチャ：Chainlitを「ハブ」にする
-
-//image[hojo-2][データの流れ：チャット → LLM → send_window_message → フロントエンド]{
-//}
+app.pyでは、ユーザーのチャット入力を受け取り、LLMにステージ生成を依頼し、生成されたステージを@<code>{send_window_message}でフロントエンドに送る役割を担います。
+30行ほどのコードで、ChainlitのイベントハンドラーやAPIのみで完結しています。
+llm.pyでは、LLMにステージ生成を依頼する関数と、LLMの出力をバリデーションする関数を実装します。
+今回は、OpenAIのAPIを用いてLLMとやり取りするコードを実装しています。
+public/index.htmlでは、ゲームフロントエンドのHTML・CSS・JavaScriptを実装します。
+Chainlitの標準チャットUIは@<code>{iframe}で読み込んでいるだけで、あとはゲーム画面のレイアウトや描画ロジックを実装しています。
 
 このアプリの核心は、Chainlitを@<b>{チャットUIとゲーム画面を繋ぐハブ}として使っている点です。
-
 通常のChainlitアプリは「ユーザーがメッセージを送信し、システムがそのメッセージに応答する」だけです。
-ところが@<code>{send_window_message}を1行足すだけで、チャットの外側にある独自画面にリアルタイムでデータを送れるようになります。
+ところが@<code>{send_window_message}を1行足すだけで、チャットの外側にある独自フロントエンドにリアルタイムでデータを送れるようになります。
 つまり、Chainlitが「LLMの出力をゲーム画面に中継するハブ」になるのです。
 
-本書の別章（@<chapref>{ditto}）では@<code>{CustomElement}を使って、チャットメッセージの中にUIを埋め込むアプローチを紹介しています。
-一方、本章の@<code>{send_window_message}はチャットの@<b>{外に}あるフロントエンドにデータを送ります。
-どちらもChainlitの拡張手法ですが、用途が異なります。
 
-//table[comparison][CustomElementとsend_window_messageの比較]{
-項目	CustomElement	send_window_message
------------------
-UIの配置	チャットメッセージ内	チャット外の独自画面
-送信方向	双方向（props + callAction）	バックエンド→フロントエンド
-適した用途	フォーム、お絵かき等	ダッシュボード、ゲーム等
-//}
-
-
-== バックエンド
-バックエンドは、ユーザーのチャット入力を受け取り、LLMにステージ生成を依頼し、その結果を@<code>{send_window_message}でフロントエンドに送る役割を担います。
-Chainlitの基本的な機能（@<code>{on_chat_start}、@<code>{on_message}、@<code>{cl.Message}など）を使いながら、@<code>{cl.Step}で処理状況を可視化し、@<code>{cl.user_session}でセッション変数を管理し、@<code>{send_window_message}でデータを送る、という流れになります。
-
+== 実装してみよう
 
 ===  Chainlit UIレイヤー
 
-Chainlit UIレイヤーのコードはわずか30行です。
+Chainlit UIレイヤーのコードを紹介します。
 
 //emlist[Chainlit UIレイヤー（app.py）]{
 import chainlit as cl
@@ -114,64 +110,8 @@ async def on_message(message: cl.Message) -> None:
     await cl.send_window_message({"type": "stage_updated", "stage": stage})
 //}
 
-非常に短いコードですが、Chainlitの重要な機能が多く詰まっています。順に見ていきましょう。
-
-
-==== @cl.on_chat_startと@cl.on_message ― イベントハンドリング
-
-Chainlitでは、デコレータでイベントハンドラを登録します。
-
-@<code>{@cl.on_chat_start}は、ユーザーがチャットセッションを開始したときに1度だけ呼ばれます。
-本アプリでは、セッション変数の初期化とウェルカムメッセージの送信に使っています。
-
-@<code>{@cl.on_message}は、ユーザーがメッセージを送信するたびに呼ばれるハンドラです。
-引数の@<code>{message: cl.Message}からユーザーの入力テキスト（@<code>{message.content}）を取得できます。
-
-本アプリの@<code>{on_message}では、以下の処理を行っています。
-
- 1. @<code>{cl.user_session}から現在のステージを取得し、新規生成か調整かを判定
- 2. @<code>{cl.Step}で処理中表示を出しながら、LLMにステージ生成を依頼
- 3. 生成結果を@<code>{cl.user_session}に保存し、完了メッセージを返す
- 4. ステージJSONを@<code>{cl.send_window_message}でフロントエンドに送信
-
-たった十数行のハンドラですが、「チャット入力 → LLM → ゲーム画面」というパイプライン全体がここで組み立てられています。
-以降のセクションでは、このハンドラの中で使われている各機能について詳しく説明します。
-
-
-==== cl.user_session ― セッション変数の管理
-
-@<code>{cl.user_session}は、ユーザーセッションごとにデータを保持する辞書的オブジェクトです。
-
-//emlist[セッション変数の操作（@<code>{cl.user_session}）]{
-cl.user_session.set("current_stage", None)     # 初期化
-current = cl.user_session.get("current_stage") # 取得
-//}
-
-本アプリでは「現在のステージ」の情報をここに保持しています。
-2回目以降のメッセージではこのステージを「下書き」としてLLMに渡すことで、「新規生成」ではなく「調整」モードで動作させることができます。
-データベースは不要で、セッション中だけ有効な軽量なストレージです。
-「重力を強くして」「板を増やして」といった対話的な調整を可能にするのに欠かせません。
-@<chapref>{ckato}の章では、データの永続化について詳しく解説されていますが、本アプリではセッション変数だけで完結させています。
-
-
-==== cl.Step ― 処理状況の可視化
-
-@<code>{cl.Step}はコンテキストマネージャで、実行中の処理をチャットUI上に表示することができます。
-
-//emlist[処理状況の可視化（@<code>{cl.Step}）]{
-async with cl.Step("ステージ生成中...", type="tool", show_input=False):
-    stage = await generate_stage(...)
-//}
-
-@<code>{with}ブロックに入ることで現在の処理状況が表示され、ブロックを抜けると完了になります。
-LLMのレスポンスには数秒かかるため、ユーザーに処理中であると伝えることはUXとして非常に重要です。
-何のフィードバックもなく数秒待たされると、ユーザーはアプリが止まったと勘違いするかもしれません。
-
-
-==== cl.send_window_message ― フロントエンドへのデータ送信
-
+ここで重要なのは、@<code>{cl.send_window_message}でLLMが生成したステージJSONをフロントエンドに送っている点です。
 @<code>{cl.send_window_message}は、Chainlitバックエンドからブラウザの@<code>{window}オブジェクトに任意のデータを送信するAPIです。
-本章のアプリを支える最も重要な機能です。
 
 //emlist[バックエンドからフロントエンドへの送信]{
 await cl.send_window_message({"type": "stage_updated", "stage": stage})
@@ -180,41 +120,98 @@ await cl.send_window_message({"type": "stage_updated", "stage": stage})
 任意のJSONシリアライズ可能なデータを送れます。
 本アプリでは、LLMが生成したステージJSON（物体の位置・サイズ・物理パラメータなど数十項目）をまるごと投げています。
 
-受信側のフロントエンドでは、@<code>{window.addEventListener("message")}でこのデータを受け取ります。
+本書の別章（@<chapref>{ditto}）では@<code>{CustomElement}を使って、チャットメッセージの中にUIを埋め込むアプローチを紹介しています。
+一方、本章の@<code>{send_window_message}はチャットの@<b>{外に}あるフロントエンドにデータを送ります。
+どちらもChainlitの拡張手法ですが、用途が異なります。
 
-//emlist[フロントエンド側の受信（public/index.html）]{
-window.addEventListener("message", e => {
-  const d = e.data;
-  if (!d || typeof d !== "object") return;
-  // Chainlitはwindow_messageでラップして送信する
-  const p = (d.type === "window_message" && d.data) ? d.data : d;
-  if (p.type === "stage_updated" && p.stage) {
-    loadStage(p.stage);
-  }
-});
+//table[comparison][CustomElementとsend_window_messageの比較]{
+項目	CustomElement	send_window_message
+-----------------
+UIの配置	チャットメッセージ内	チャット外の独自画面
+送信方向	双方向（props + callAction）	バックエンド→フロントエンド
+適した用途	フォーム、お絵かき等	ダッシュボード、ゲーム等
 //}
 
-ここで1つ注意点があります。
-Chainlitは@<code>{send_window_message}で送ったデータを@<code>{{"type": "window_message", "data": ...@}}でラップします。
-「あれ、送ったはずのデータが取れない…」と悩んだ末にこのラップに気づく―というのは筆者だけではないはずです。
-上記のように二重に取り出す処理を書くことで正しくデータを受け取ることができます。
+app.pyでは、他にも@<code>{cl.user_session}を用いて、「現在のステージ」の情報を保持することで、ゲーム仕様を対話的に調整することを可能にしています。
+また、@<code>{cl.Step}を用いて、処理状況を可視化することで、UXにも配慮しています。
 
 
 === LLM連携
 
-llm.pyでは、LLMにステージ生成を依頼する関数を実装しています。
+LLMを用いてステージ情報を生成する仕組みを説明します。
+ここで、生成するのは以下のようなゲームステージのJSONです。
+
+//emlist[ステージJSONの例]{
+{
+    "version": "1.0", 
+    "stage_id": "33b91f42-dc7b-4449-abcb-6f8495d8c027", 
+    "seed": 640993, 
+    "difficulty": "easy", 
+    "canvas": {"width": 800, "height": 600}, 
+    "physics": {"gravityY": 1.0, "gravityX": 0.0, "timeStepMs": 16.67}, 
+    "rules": {"win": {"type": "enter_goal", "targetLabel": "ball", 
+                      "goalId": "goal-1", "dwellMs": 500}}, 
+    "bodies": [{"id": "ball-1", "label": "ball", "shape": "circle", ...}, 
+                { ... }
+               ], 
+    "constraints": [], 
+    "ui": {"allowDrag": true, "dragWhitelistTags": ["ramps"]}
+//}
 
 ==== LLMをゲームデザイナーに仕立てるプロンプト
 
-LLMにステージを生成させるためのシステムプロンプトは、約100行にわたります。
-LLMへの「仕様書」であり「ゲームデザインガイドライン」です。
+LLMにステージを生成させるためのプロンプトは、約100行にわたります。
+これは、LLMへの「仕様書」であり「ゲームデザインガイドライン」です。
 
-//emlist[システムプロンプトの冒頭（抜粋）]{
+//emlist[システムプロンプト（抜粋）]{
 STAGE_GENERATION_SYSTEM = """
 あなたは物理パズルゲームのステージを生成する優秀なゲームデザイナーです。
 ユーザーの要件に従い、Matter.jsで動作する有効なステージJSONを生成してください。
 ステージは必ず解けるものでなければなりません。
 出力はJSON形式のステージデータのみで、余計な説明やテキストを含めないでください。
+
+## ゲームメカニクス（重要）
+- 幅800px、高さ600px
+
+## 必須ボディ
+1. label="ball": ボール（isStatic=false, isSensor=false, color="#60a5fa"）。
+   上部左右どちらかに配置。
+（中略）
+
+## 難易度ガイドライン（板の枚数と障害物の数で決定）
+- easy: 移動可能な板4~5枚(傾きは全てゴール方向)、障害物0個、ゴール大（w=80, h=60）
+（中略）
+
+## 物理パラメータ（通常の場合）
+- ボール：friction: 0.01, frictionStatic: 0.02, frictionAir: 0.001, 
+         restitution: 0.3, density: 0.005
+（中略）
+
+## JSONテンプレート
+{
+    "version": "1.0",
+    "stage_id": "uuid",
+    "seed": ランダムな整数,
+    "difficulty": "easy" | "normal" | "hard",
+    "canvas": {"width": 800, "height": 600},
+    "physics": {"gravityY": 1.0, "gravityX": 0.0, "timeStepMs": 16.67},
+    "rules": {
+        "win": {"type": "enter_goal", "targetLabel": "ball", 
+                "goalId": "goal-1", "dwellMs": 500}
+    },
+    "bodies": [ ... ],
+    "constraints": [ ... ],
+    "ui": {"allowDrag": true, "dragWhitelistTags": ["ramps"]}
+}
+
+##  パズルデザインの注意点
+- ボールは上部から落下し、板や障害物を経由してゴールに到達する必要がある。
+- 板はバラバラに配置して、プレイヤーが並べ直す余地を残す。
+- ゴールは下部の床の上に接地させること（y = 590 - h/2）。上方は解放すること。
+- テーマ（宇宙、水中など）はカラーパレットで表現。
+- ステージは板を正しく配置すれば必ずクリアできるように設計すること。
+  絶対に解けないステージは生成しないこと。
+- ゴールには必ず "id": "goal-1" を付与すること。
 """
 //}
 
@@ -264,51 +261,42 @@ def validate_stage(stage: dict) -> bool:
 
 バリデーションに失敗した場合は最大3回リトライします。
 「LLMの出力は正しいはず」という前提でコードを書くと、ユーザーに壊れたステージが届いてしまいます。
-LLMの出力を全信頼せず、検証することは、LLM連携アプリ全般に通じる鉄則です。
+LLMの出力を全信頼せず検証することは、LLM連携アプリ全般に通じる鉄則です。
 
 
-=== 会話でパズルを調整する
+=== ゲームフロントエンド
 
-@<code>{generate_stage}関数は、既存のステージがある場合はそのJSONをコンテキストとしてLLMに渡します。
-これは@<code>{cl.user_session}に保存された現在のステージを引数として受け取る形になっています。
-
-//emlist[ステージ調整モード]{
-async def generate_stage(
-    requirements: str,
-    current_stage: dict = None) -> dict:
-    context = ""
-    if current_stage:
-        context = (
-            f"\n\n現在のステージの情報\n"
-            f"```json\n"
-            f"{json.dumps(current_stage, indent=2)}"
-            f"\n```\n\n"
-            f"このステージを{requirements}の"
-            f"要件に合わせて調整してください。")
-//}
-
-これにより「もっと難しくして」「重力を弱くして」「障害物を増やして」といった自然言語での調整が可能になります。
-チャットで対話しながらパズルを微調整できるのは、Chainlit + LLMならではの機能です。
-
-
-== フロントエンド
-
-public/index.htmlでは、ゲームのフロントエンドを実装しています。
-Chainlitの標準チャットUIは@<code>{iframe}で読み込んでいるだけで、あとは完全に独立した画面になっています。
-フロントエンドの主な役割は、@<code>{send_window_message}で送られてくるステージJSONをMatter.jsで描画し、ユーザーの操作を受け付けることです。
+ゲームのフロントエンドは、public/index.htmlで実装しています。
+Chainlitの標準チャットUIは@<code>{iframe}で読み込んで、あとは完全に独立した画面になっています。
+フロントエンドの主な役割は、@<code>{send_window_message}で送られてくるステージJSONを物理エンジンであるMatter.jsで描画し、ユーザーの操作を受け付けることです。
 
 Chainlitはプロジェクトルートに@<code>{public/}ディレクトリがあると、その中のファイルを@<code>{/public/}パスで自動的に配信します。
 @<code>{public/index.html}を置くだけで@<code>{http://localhost:8000/public/index.html}でアクセスできるようになります。
-本アプリでは、Chainlitの@<code>{custom_js}設定で@<code>{public/redirect.js}というスクリプトを注入し、ルートURL（@<code>{/}）にアクセスしたユーザーを自動的に@<code>{/public/index.html}へリダイレクトしています。
-これにより、@<code>{chainlit run app.py}で起動するだけで、ブラウザにチャット＋ゲーム画面が表示されます。
+本アプリでは、Chainlitの@<code>{custom_js}設定で@<code>{public/redirect.js}というスクリプトを注入し、ルートURL（@<code>{/}）にアクセスしたユーザーを自動的に@<code>{/public/index.html}へリダイレクトするようにしています。
 
-
-=== レイアウト
-
-//image[hojo-3][2カラムレイアウト：左にチャット、右にゲームキャンバス]{
+//emlist[ディレクトリ構成]{
+chainlit-app/
+├── app.py
+├── llm.py
+├── .chainlit/
+│   └── config.toml  # custom_js = "/public/redirect.js"
+└── public/
+    ├── redirect.js  # /public/index.html へ
+    └── index.html  # ゲーム画面本体
 //}
 
-CSS Gridで画面を左右に分割し、左ペインに標準チャットUIをiframeで表示、右ペインにゲームキャンバスを表示しています。
+//image[hojo-3][リダイレクトの仕組み：ルートURLにアクセスしたらゲーム画面へ飛ばす][scale=0.6]{
+//}
+
+これにより、@<code>{chainlit run app.py}で起動するだけで、ブラウザにChainlitのチャット＋ゲーム画面が表示されます。
+
+
+==== レイアウト
+
+//image[hojo-4][2カラムレイアウト：左にチャット、右にゲームキャンバス]{
+//}
+
+CSS Gridで画面を左右に分割し、左ペインにiframeでChainlitの標準チャットUIを表示、右ペインにゲームキャンバスを表示しています。
 
 //emlist[2カラムレイアウト（HTML・CSS抜粋）]{
 <style>
@@ -332,12 +320,37 @@ CSS Gridで画面を左右に分割し、左ペインに標準チャットUIをi
 //}
 
 iframeの@<code>{src="/"}はChainlitのルートURLです。通常、@<code>{chainlit run app.py}で起動するとルートURLにChainlitの標準チャットUIが配信されます。
-これをiframeで読み込むことで、メッセージ送受信・Markdown表示・Step表示などの機能をそのまま活用できるのが大きなメリットです。
+これをiframeで読み込むことで、メッセージ送受信やMarkdown表示などの機能をそのまま活用できるのが大きなメリットです。
 
 
-=== Matter.jsの概要
+==== send_window_messageからデータを受け取る
 
-本アプリでは、ブラウザ上で動く2D物理エンジンであるMatter.jsを使って、ステージの描画と物理シミュレーションを行っています。
+Chainlitバックエンドから@<code>{send_window_message}で送られてくるデータは、フロントエンドのJavaScriptで@<code>{window.addEventListener("message")}を使って受け取ります。
+@<code>{send_window_message}で送るデータは、チャットUIの外側にあるフロントエンドにリアルタイムで送られるため、チャットのやり取りとは独立して、ゲーム画面を更新することができます。
+
+//emlist[フロントエンド側の受信（public/index.html）]{
+window.addEventListener("message", e => {
+  const d = e.data;
+  if (!d || typeof d !== "object") return;
+  // Chainlitはwindow_messageでラップして送信する
+  const p = (d.type === "window_message" && d.data) ? d.data : d;
+  if (p.type === "stage_updated" && p.stage) {
+    loadStage(p.stage);
+  }
+});
+//}
+
+ここで1つ注意点があります。
+Chainlitでは、@<code>{send_window_message}で送ったデータを@<code>{{"type": "window_message", "data": ...@}}でラップします。
+そのため、上記のように二重に取り出す処理を書くことで正しくデータを受け取ることができます。
+
+
+==== Matter.jsを用いたゲーム画面の描画
+
+本アプリでは、ブラウザ上で動く2D物理エンジンであるMatter.js@<fn>{matterjs}を使って、ステージの描画と物理シミュレーションを行っています。
+
+//footnote[matterjs][Matter.js：2D物理エンジンのJavaScriptライブラリ。https://brm.io/matter-js/]
+
 CDNから1行で読み込むだけで、重力・衝突・摩擦といったリアルな物理シミュレーションが使えるようになります。
 
 //emlist[CDNからの読み込み]{
@@ -352,7 +365,7 @@ const { Engine, Render, Runner, Bodies, Body,
         Composite, Query, Events } = Matter;
 //}
 
-各モジュールの役割を整理しておきます。
+詳しくはMatter.jsのドキュメントを参照していただきたいですが、各モジュールの役割を簡単にまとめると以下のようになります。
 
 //table[matter-modules][Matter.jsの主要モジュール]{
 モジュール	役割
@@ -368,7 +381,7 @@ Events	Engine・Renderにイベントリスナーを登録
 //}
 
 
-=== send_window_messageからゲーム画面へ
+==== ステージのJSONからゲーム画面へ
 
 @<code>{send_window_message}で受け取ったステージのJSONは、以下の流れでゲームとして動き出します。
 
@@ -379,88 +392,43 @@ Events	Engine・Renderにイベントリスナーを登録
  5. ユーザーがドラッグで板を配置し、スタートボタンで@<code>{Runner}を起動
 
 ステップ1のクリーンアップでは、Render → Runner → Engineの順に停止・破棄します。
-チャットで「新しいパズルを作って」と言うたびにこのクリーンアップが走り、まっさらな状態からゲーム画面を構築し直します。
-
-ステップ2〜3では、@<code>{Engine}が物理演算を、@<code>{Render}がCanvasへの描画を、@<code>{Runner}がフレームごとの更新ループを担当します。
-この3つが分離しているのがMatter.jsの設計で、本アプリではステージ読み込み時に@<code>{Render}だけを起動し、@<code>{Runner}はスタートボタンが押されるまで起動しません。
-これにより、ボールは@<code>{isStatic: true}で固定され、描画はされるが物理演算は進まない「スタート待ち」の状態を実現しています。
+チャットで「新しいパズルを作って」と言うたびに、このサイクルの起点となる@<code>{send_window_message}からデータを受け取り、古いリソースをクリーンアップすることで、まっさらな状態からゲーム画面を構築し直します。
 
 
-=== 物体（ボディ）の生成
+== 遊んでみる
 
-ステージJSONの@<code>{bodies}配列をループし、Matter.jsのボディに変換します。
+それでは、実際にアプリを起動して遊んでみましょう。
+アプリを起動して、チャットで「簡単なパズルを作って」と入力すると、LLMがステージを生成し、ゲーム画面が表示されます。
 
-//emlist[ステージJSONからMatter.jsボディへの変換]{
-for (const b of stage.bodies) {
-  const ramp = b.label === "ramp";
-  const opts = {
-    isStatic: ramp ? true : (b.isStatic !== false),
-    isSensor: !!b.isSensor,
-    friction: b.friction ?? 0.1,
-    restitution: b.restitution ?? 0.2,
-    density: b.density ?? 0.001,
-    angle: b.angle || 0,
-    render: {
-      fillStyle: ramp ? "#fb923c" : (b.color||"#888")
-    },
-  };
-  let body;
-  if (b.type === "circle" || b.r != null) {
-    body = Bodies.circle(b.x, b.y, b.r || 15, opts);
-  } else {
-    body = Bodies.rectangle(
-      b.x, b.y, b.w || 100, b.h || 20, opts);
-  }
-  Composite.add(engine.world, body);
-}
+//image[hojo-5][簡単なパズルのステージ]{
 //}
 
-ポイントは、LLMが生成するJSONの構造がMatter.jsのパラメータにそのまま対応している点です。
-@<code>{friction}（摩擦）、@<code>{restitution}（反発）、@<code>{density}（密度）といった物理パラメータをJSONに含めているため、プロンプトを通じてLLMがゲームの物理的な振る舞いまでコントロールできます。
+簡単にクリアできました。
+「もう少し難しくして」と入力して、もう少し難しいステージで遊んでみましょう。
 
-ゴールは@<code>{isSensor: true}にしているため、ボールが物理的にぶつかることはなく、すり抜けます。
-衝突判定だけが有効で、ゴール領域にボールが入ったかどうかを検知するために使っています。
-
-
-=== ゲームのライフサイクル
-
-ゲームには@<code>{idle}（配置中）→ @<code>{playing}（プレイ中）→ @<code>{clear}（クリア）の3つの状態があります。
-
-//emlist[スタート：ボールを物理演算に委ねる]{
-function startGame() {
-  gameState = "playing";
-  Body.setStatic(currentBallBody, false);
-  runner = Runner.create();
-  Runner.run(runner, engine);
-}
+//image[hojo-6][少し難しいパズルのステージ]{
 //}
 
-スタートボタンが押されると@<code>{Body.setStatic(false)}でボールを動的に切り替え、@<code>{Runner}を起動します。
-これだけで、ボールは重力に従って落下し始めます。
+動かせる板が減り、障害物が出てきました。少し頭を使いますが、なんとかクリアできました。
+さらに「もっと難しくして」と入力して、もっと難しいステージで遊んでみましょう。
 
-リセット時は@<code>{Runner}を止めてから、すべてのボディの位置・角度・速度を初期値に戻します。
-ステージ読み込み時に各ボディの初期状態を配列に保存しておき、リセット時にそこから復元しています。
+//image[hojo-7][かなり難しいパズルのステージ]{
+//}
 
-ゴール領域にボールが一定時間（@<code>{dwellMs}ミリ秒）止まるとクリアです。
-@<code>{dwellMs}もステージのJSONの一部なので、LLMが難易度に応じて値を変えることもできます。
-チャットで「新しいパズルを作って」と言うたびに、このサイクルの起点となる@<code>{send_window_message}からすべてが始まります。
+動かせる板がさらに減り、障害物は増えました。
+頑張ってみましたが、ゴールを通り過ぎてしまい、失敗してしまいました。
 
+このように、チャットでステージの要件を伝えるだけで、LLMが生成したステージで遊ぶことができます。
 
-== まとめ
+== おわりに
 
-本章では、Chainlitの以下の機能を組み合わせて物理パズルゲームを実装しました。
+本章では、LLMによるゲームオブジェクトの生成とChainlitの@<code>{send_window_message}を組み合わせて物理パズルゲームを実装しました。
 
- * @<code>{@cl.on_chat_start}/@<code>{@cl.on_message} ― イベントハンドリング
- * @<code>{cl.user_session} ― セッション単位のデータ保持
- * @<code>{cl.Step} ― 処理中の可視化
- * @<code>{cl.send_window_message} ― フロントエンドへのリアルタイム通信
- * @<code>{public/index.html} ― カスタムフロントエンドの配信
-
-中でも@<code>{cl.send_window_message}は、Chainlitをチャットの枠を超えたインタラクティブアプリのプラットフォームに変える強力な機能です。
+@<code>{send_window_message}は、Chainlitをチャットの枠を超えたインタラクティブアプリのプラットフォームに変える強力な機能です。
 チャットUIから独自のフロントエンドにデータを送れるこの仕組みは、物理パズルに限らず、様々な応用が考えられます。
 
  * @<b>{可視化ダッシュボード} ― LLMが生成したグラフやチャートをリアルタイム描画
  * @<b>{コード実行環境} ― チャットで書いたコードをサンドボックスで実行
  * @<b>{インタラクティブ教材} ― チャットの指示で図やアニメーションを操作
 
-ぜひ、@<code>{cl.send_window_message}を活用して、チャットと連動する新しい体験を作ってみてください。
+ぜひ、@<code>{send_window_message}を活用して、チャットと連動する新しい体験を作ってみてください。
