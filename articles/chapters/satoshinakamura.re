@@ -466,9 +466,9 @@ async def on_message(message: cl.Message) -> None:
     ).send()
 //}
 
- * @<code>{Action.name} がアクションの識別子となります。
- * @<code>{cl.Message} に複数のアクションを設定できます。
- * アクションのボタンが押された場合のコールバックは @<code>{@cl.action_callback("アクション名")} で実装します。
+ * @<code>{Action.name} がアクションの識別子となる
+ * @<code>{cl.Message} に複数のアクションを設定できる
+ * アクションのボタンが押された場合のコールバックは @<code>{@cl.action_callback("アクション名")} を用いて実装する
 
 実行すると以下のようにクリックできるボタンが出現し、クリック回数が表示されます。
 
@@ -556,7 +556,7 @@ async def on_message(message: cl.Message) -> None:
 
 本章では、シンプルなウェブアプリケーションを例に、Chainlitの基本機能を概観しました。主なポイントは以下のとおりです。
 
- * ログイン機能：@<code>{@cl.password_auth_callback} によるパスワード認証を導入し、チャット履歴の永続化などの機能を有効にします。
+ * ログイン機能：@<code>{@cl.password_auth_callback} によるパスワード認証を導入
  * チャット機能：
  ** スターター（@<code>{@cl.set_starters}）によるプリセットメッセージ
  ** アシスタント選択（@<code>{@cl.set_chat_profiles}）
