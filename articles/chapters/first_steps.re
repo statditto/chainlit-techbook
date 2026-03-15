@@ -1,7 +1,7 @@
 = Chainlitはじめの一歩
 
 //lead{
-本章では、Chainlitを動かすまでの環境構築を丁寧に解説します。パッケージ管理ツールとして近年急速に普及している@<b>{uv}を使い、Chainlitをインストールするところから、ブラウザでチャット画面が開くまでを一緒に進めていきましょう。
+本章では、Chainlitを動かすまでの環境構築を丁寧に解説します。パッケージ管理ツールとして近年急速に普及しているuvを使い、Chainlitのインストールから、最初のアプリケーションを起動するまで、一つずつ一緒に進めていきましょう！
 //}
 
 //pagebreak
@@ -14,7 +14,7 @@
 
 === uvのインストール
 
-まだuvをインストールしていない場合は、以下のコマンドを実行してください。
+uvをインストールしていない場合は、公式のガイド（Installing uv (@<href>{https://docs.astral.sh/uv/getting-started/installation/})）に従ってインストールを進めましょう。本書の執筆時点では、次のコマンドを実行してインストールできます。
 
 //cmd{
 # macOS / Linux
@@ -24,7 +24,7 @@ $ curl -LsSf https://astral.sh/uv/install.sh | sh
 $ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 //}
 
-インストール後、シェルを再起動するかパスを再読み込みし、バージョンが表示されることを確認します。2024年6月時点の最新バージョンは@<b>{0.10.10}です。
+インストール後、シェルを再起動するかパスを再読み込みし、バージョンが表示されることを確認します。2026年3月時点の最新バージョンは@<b>{0.10.10}です。
 
 //cmd{
 $ uv --version
@@ -33,20 +33,11 @@ uv 0.10.10 (8c730aaad 2026-03-13)
 
 == プロジェクトの作成
 
-uvでPythonプロジェクトを新規作成します。@<code>{--python}オプションでPythonバージョンを指定すると、@<code>{pyproject.toml}の@<code>{requires-python}が自動的に設定されます。
+uvでPythonプロジェクトを新規作成します。@<code>{--python}オプションでPythonバージョンを指定すると、@<code>{pyproject.toml}の@<code>{requires-python}と@<code>{.python-version}ファイルが自動的に生成されます。
 
 //cmd{
 $ uv init chainlit-first --python 3.13.4
 $ cd chainlit-first
-//}
-
-=== Pythonバージョンの固定
-
-続いて@<code>{uv python pin}を実行します。プロジェクトルートに@<code>{.python-version}ファイルが作成され、このディレクトリ内では常に指定したバージョンが使われるようになります。
-
-//cmd{
-$ uv python pin 3.13.4
-Pinned `.python-version` to `3.13.4`
 //}
 
 //note[Pythonバージョンが手元にない場合]{
@@ -75,17 +66,20 @@ Chainlitは活発に開発されており、マイナーバージョンアップ
 $ uv run chainlit hello
 //}
 
-コマンドを実行すると、ターミナルに以下のようなメッセージが表示され、自動的にブラウザが開きます。
+コマンドを実行すると、ターミナルに次のようなメッセージが表示され、自動的にブラウザが開きます。
 
 //cmd{
 2026-xx-xx xx:xx:xx - Your app is available at http://localhost:8000
 //}
 
-ブラウザでチャット画面が表示されれば成功です🎉 画面上のチャット入力欄にメッセージを送ると、ボットから返信が届くはずです。Ctrl+Cでサーバーを停止できます。
+@<img>{ditto-first}のように、ブラウザでチャット画面が表示されれば成功です！画面上のチャット入力欄にメッセージを送ると、ボットから返信が届くはずです。
+
+//image[ditto-first][デモアプリのチャット画面][scale=1.0]{
+//}
 
 == 生成されるディレクトリ構造
 
-@<code>{uv init}と@<code>{uv add}、@<code>{chainlit hello}を実行した後、プロジェクト内は以下のような構造になっています。
+@<code>{uv init}と@<code>{uv add}、@<code>{chainlit hello}を実行すると、プロジェクト内は次のような構造になります。
 
 //cmd{
 chainlit-first/
@@ -109,38 +103,38 @@ chainlit-first/
 
 === main.py
 
-@<code>{uv init}によって生成されるエントリポイントです。初期状態では単純なHello Worldのコードが入っていますが、これを書き換えてChainlitアプリを作っていくか、別途@<code>{app.py}などを作成して使います。
+@<code>{uv init}によって生成されるエントリポイントです。初期状態では単純なHello Worldのコードが入っており、これを書き換えてChainlitアプリを作っていくか、別途@<code>{app.py}などを作成する必要があります。
 
 === chainlit.md
 
-アプリ起動時にチャット画面のウェルカムページとして表示されるMarkdownファイルです。プロジェクトの説明や使い方をここに記載しておくと、ユーザーへの案内として機能します。
+チャット画面のウェルカムページとして表示されるMarkdownファイルです。プロジェクトの説明や使い方をここに記載しておくと、ユーザーへの案内として機能します。
 
 === .chainlit/config.toml
 
-Chainlitアプリの動作を細かく制御する設定ファイルです。主なセクションと設定項目を以下に示します。
+Chainlitアプリの動作を細かく制御する設定ファイルです。主なセクションと設定項目を次に示します。
 
 //table[config][config.tomlの主な設定]{
 セクション	設定項目	説明
 --------------------------
-[project]	session_timeout	接続切断後にセッションを保持する秒数（デフォルト: 3600）
+[project]	session_timeout	接続切断後にセッションを保持する秒数
 [project]	cache	LangChainなどのサードパーティキャッシュを有効にするか
-[features]	unsafe_allow_html	メッセージ内のHTMLレンダリングを許可するか（セキュリティ注意）
+[features]	unsafe_allow_html	メッセージ内のHTMLレンダリングを許可するか
 [features]	latex	数式（LaTeX）のレンダリングを有効にするか
 [UI]	name	チャット画面に表示されるアシスタントの名前
 [UI]	cot	思考過程（Chain of Thought）の表示モード
 //}
 
-最初のうちはデフォルト設定のまま進めて問題ありません。カスタマイズしたくなったときに、このファイルを編集するようにしましょう。
+最初のうちはデフォルト設定のまま進めて問題ありません。カスタマイズしたくなったときに、このファイルを編集するようにしましょう。詳しい設定項目は、公式ドキュメント(@<href>{https://docs.chainlit.io/backend/config/overview})を参照してください。
 
 === .chainlit/translations/
 
-Chainlit UIの多言語対応用JSONファイルが格納されています。@<code>{ja.json}を編集することで、UI上のテキストを日本語にカスタマイズできます。@<code>{config.toml}の@<code>{[UI]}セクションで@<code>{language = "ja"}を設定すると、日本語表示がデフォルトになります。
+Chainlit UIの多言語対応用JSONファイルが格納されています。@<code>{ja.json}を編集することで、UI上のテキストを日本語にカスタマイズできます。@<code>{config.toml}の@<code>{[UI]}セクションで@<code>{language = "ja"}を設定すると、デフォルトで日本語表示に変更できます。
 
 == 自分のアプリを動かしてみる
 
-@<code>{chainlit hello}は組み込みのデモですが、自分でコードを書いて動かしてみましょう。@<code>{app.py}という名前で以下の内容を作成します。
+@<code>{chainlit hello}とは別に、少しだけ自分でもコードを書いてみましょう！@<code>{app.py}という名前で次の内容を作成します。
 
-//list[app][app.py]{
+//listnum[app][app.py][python]{
 import chainlit as cl
 
 @cl.on_message
@@ -150,7 +144,15 @@ async def main(message: cl.Message):
     ).send()
 //}
 
-以下のコマンドで起動します。
+たったの7行です。それぞれの役割を見てみましょう。
+
+ * @<code>{@cl.on_message}：ユーザーがメッセージを送るたびに、直下の関数を呼び出すよう登録するデコレータです。「メッセージが来たらここを動かす」という宣言だと思えばOKです。
+ * @<code>{message: cl.Message}：ユーザーが送ったメッセージオブジェクトです。@<code>{message.content}でテキスト本文を取り出せます。
+ * @<code>{cl.Message(...).send()}：Chainlitにレスポンスを送り返す命令です。@<code>{content}に文字列を渡すだけで、チャット画面にメッセージが表示されます。
+
+Webフレームワークでゼロからチャット画面を作ろうとすると、WebSocketの接続管理やHTMLのテンプレート、フロントエンドのコードなど、多くの要素が必要になります。Chainlitはそうした複雑さをすべて内部で引き受けてくれるため、開発者はロジックだけに集中できます。基本的には、「ユーザーからメッセージが来たら何を返すか」だけ書けば、あっという間にチャットアプリが完成します。
+
+さっそく次のコマンドで起動してみましょう。
 
 //cmd{
 $ uv run chainlit run app.py -w
@@ -159,7 +161,7 @@ $ uv run chainlit run app.py -w
 @<code>{-w}オプションを付けると、ファイルを変更したときに自動でリロードされるウォッチモードで起動します。開発中はこのオプションを活用すると便利です。
 
 //note[uvを使ったコマンド実行]{
-@<code>{uv run}を先頭に付けることで、プロジェクトの仮想環境に入らずともその環境のPythonやコマンドを使って実行できます。@<code>{source .venv/bin/activate}などの仮想環境アクティベーション操作が不要になるため、本書では@<code>{uv run}を使って実行する形式に統一します。
+@<code>{uv run}を先頭に付けることで、プロジェクトの仮想環境に入らずともその環境のPythonやコマンドを使って実行できます。@<code>{source .venv/bin/activate}などの仮想環境アクティベーション操作が不要になるため、必要に応じて使い分けるといいでしょう。
 //}
 
 == まとめ
