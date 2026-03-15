@@ -67,7 +67,7 @@ async def set_starters() -> list[cl.Starter]:
 
 ChatGPTのモデル切り替えと同様の体験で、アシスタントを選択するUIを提供できます。
 
-//image[chat_profile][Chat Profile][scale=0.6]{
+//image[chat_profile][Chat Profileの選択][scale=0.6]{
 //}
 
 
@@ -137,8 +137,8 @@ def data_layer() -> SQLAlchemyDataLayer:
 === コマンド設定（ @<code>{cl.context.emitter.set_commands} ）
 
 メッセージ入力欄の下にあるボタンは、コマンドと呼ばれる機能です。
-ボタンを押すか、Skillsのように「/」から検索して利用できます。
-//image[command_meow_from_input][Command][scale=0.6]{
+ボタンを押すか、@<img>{command_meow_from_input} のように「/」から検索して利用できます。
+//image[command_meow_from_input][Commandの利用画面][scale=0.6]{
 //}
 
 コマンドを選択したあとに、ユーザーがメッセージを送信することで、対応するコマンドの処理が呼び出されます。
@@ -193,7 +193,11 @@ async def on_chat_start() -> None:
 
 
 スターターと異なり、ユーザーはコマンドの実行時にメッセージを追加できます。
-また、コマンドはチャット開始後も利用できます。そのためコマンドを Skills を呼び出す入口として利用するといった使い方ができます。
+また、コマンドはチャット開始後も利用できます。そのため Skills@<fn>{skills} を呼び出す入口として利用するといった使い方ができます。
+//footnote[skills][
+ * @<href>{https://code.claude.com/docs/ja/skills}
+ * @<href>{https://agentskills.io/home}
+//]
 
 === チャット設定（ @<code>{cl.ChatSettings} ）
 
@@ -267,11 +271,11 @@ async def setup_agent(settings: dict[str, Any]) -> None:
 
 しかし、アシスタントの回答といってもその表示方法は様々です。
 例えば、ChatGPTを見ると、最終的な回答メッセージだけではなく、途中の思考やツールの実行内容が表示されていることが見て取れます。
-また、Claude Code や Codex などのコーディングエージェントを利用すると、エージェントがユーザにYes/Noを提示して許可で求めたり、選択肢を提示して質問を投げかけることがあります。
+また、Claude Code や Codex などのコーディングエージェントを利用すると、エージェントがユーザにYes/Noを提示して許可を求めたり、選択肢を提示して質問を投げかけることがあります。
 
-このようなアシスタントの意図を表すには、メッセージに関する UI 上の工夫が必要です。
-Chainlitでは、これらの幅広さに対応して様々な機能が提供されています。
-そこでこの節では、ChainlitのメッセージのUI要素について、基本的な機能と実装方法を説明します。
+そのため、アシスタントの意図を表すには、メッセージに関する UI 上の工夫が必要です。
+これらの要求に幅広く対応するため、Chainlitでは様々な機能が提供されています。
+この節では、ChainlitのメッセージのUI要素について、基本的な機能と実装方法を説明します。
 
 === Message（ @<code>{cl.Message} ）
 
@@ -288,7 +292,7 @@ async def on_message(message: cl.Message) -> None:
 
 特に、ユーザーの入力メッセージは関数の引数を通じて与えられ、メッセージの文字列は @<code>{content} 属性にあり、メッセージの送信は @<code>{send()} で行われています。
 
-@<code>{send()} を呼び出すと、背後では以下のことが行われます。
+@<code>{send()} を呼び出すと、内部では以下のことが行われます。
 @<fn>{messagebase-send}
 //footnote[messagebase-send][詳細は @<code>{MessageBase.send()} の実装を参照してください。]
 
@@ -299,7 +303,7 @@ async def on_message(message: cl.Message) -> None:
 最後の @<code>{cl.chat_context} は、チャット内でこれまでやり取りしたメッセージを @<code>{list[cl.Message]} として保存している変数です。
 特に、@<code>{cl.chat_context.get()} や @<code>{cl.chat_context.to_openai()} で取得したメッセージの履歴を LLM の入力として与えるといった使い方ができます。
 
-なお、メッセージの内容は @<code>{update()} や @<code>{remove()} を用いて更新・削除できます（@<code>{send()} と同様に、背後で更新・削除が行われます）。
+なお、メッセージの内容は @<code>{update()} や @<code>{remove()} を用いて更新・削除できます（@<code>{send()} と同様に、内部で更新・削除が行われます）。
 
 //emlist[ @<code>{update()} 及び @<code>{remove()}][python]{
 @cl.on_message
@@ -424,8 +428,8 @@ async def on_message(message: cl.Message) -> None:
 
 なお、@<code>{cl.Action}の内容は、データレイヤーの永続化の対象ではありません。
 そのため、例えばタブをリロードすると、メッセージのボタンが無くなります。
-このことから、アクションの選択内容を後で追跡したい場合は、@<code>{cl.Step} に選択結果を記録するなどの対応が必要となります。
-また、確認ダイアログに利用する場合には、「Yes/No」のボタンだけではなく、アシスタントの回答に「良ければYes、良くないならばNoと回答してください」とすることで、再開時にボタンが消えたとしてもユーザーが迷わないメッセージ設計が必要になります。
+このことから、アクションの選択内容を後で追跡したい場合は、@<code>{cl.Message} や @<code>{cl.Step} に選択結果を記録するなどの対応が必要となります。
+例えば、確認ダイアログに利用する場合には「Yes/No」のボタンだけではなく、アシスタントの回答に「良ければYes、良くないならばNoと回答してください」とすることで、再開時にボタンが消えたとしてもユーザーが迷わないメッセージ設計になります。
 
 === Element（ @<code>{cl.Element} ）
 
