@@ -89,8 +89,7 @@ chainlit-first/
 │       ├── en-US.json
 │       ├── ja.json
 │       └── （その他の言語ファイル）
-├── .files/              ← chainlit helloで生成（アップロードファイル保存用）
-├── .python-version      ← uv python pinで生成
+├── .python-version      ← uv init --pythonで生成
 ├── .venv/               ← uv addで生成（仮想環境）
 ├── chainlit.md          ← chainlit helloで生成
 ├── main.py              ← uv initで生成
@@ -103,7 +102,7 @@ chainlit-first/
 
 === main.py
 
-@<code>{uv init}によって生成されるエントリポイントです。初期状態では単純なHello Worldのコードが入っており、これを書き換えてChainlitアプリを作っていくか、別途@<code>{app.py}などを作成する必要があります。
+@<code>{uv init}によって生成されるエントリポイントです。初期状態では単純なHello Worldのコードが入っています。Chainlitアプリは別途@<code>{app.py}として作成するため、このファイルはそのまま残しておいて問題ありません。
 
 === chainlit.md
 
@@ -132,7 +131,7 @@ Chainlit UIの多言語対応用JSONファイルが格納されています。@<
 
 == 自分のアプリを動かしてみる
 
-@<code>{chainlit hello}とは別に、少しだけ自分でもコードを書いてみましょう！@<code>{app.py}という名前で次の内容を作成します。
+@<code>{chainlit hello}とは別に、少しだけ自分でもコードを書いてみましょう！@<code>{uv init}で生成された@<code>{main.py}はChainlit用のコードではないため、新たに@<code>{app.py}を作成します。Chainlitの公式ドキュメントでも@<code>{app.py}が慣例として使われており、本書でもこの名前に統一します。
 
 //listnum[app][app.py][python]{
 import chainlit as cl
